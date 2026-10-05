@@ -29,9 +29,9 @@ class Settings(BaseSettings):
     paypal_buyer_email: str = ""
     paypal_webhook_id: str = ""
 
-    # ── LLM ──
-    anthropic_api_key: str = ""
-    breakpoint_model: str = "claude-opus-4-8"
+    # ── LLM (OpenAI drives the attacker agents + the Barista) ──
+    openai_api_key: str = ""
+    breakpoint_model: str = "gpt-4.1"
 
     # ── Vulnerability toggles (ON = exploitable) ──
     trust_client_amount: bool = True

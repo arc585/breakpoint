@@ -1,14 +1,13 @@
 """
-A general tool-using agent loop, reused by both sides of Breakpoint:
+A general tool-using agent loop (OpenAI), reused by both sides of Breakpoint:
   * attacker agents (tools reach into the Target / PayPal to try an exploit)
   * the Barista shop assistant (tools apply discounts, create orders, refund)
 
-Design, lifted from BeingAI's ad_agent engine:
+Design, carried over from BeingAI's ad_agent engine:
   * the loop lives here, not in the model — up to MAX_TOOL_ITERATIONS turns;
-  * a ToolBox maps tool name -> async handler; a handler returns (result, is_error);
-  * retry/backoff on transient Anthropic errors, hard-fail on auth;
-  * thinking blocks are serialized back verbatim so a thinking model stays happy;
-  * the transcript is captured in full for the findings report.
+  * a Tool maps name -> async handler; a handler returns (result, is_error);
+  * retry/backoff on transient OpenAI errors, hard-fail on auth;
+  * the full transcript is captured for the findings report.
 
 The loop itself is neutral. What makes an agent "unsafe" or "hardened" is which
 tools it is given and what those tools allow — the state machine is the tools.
@@ -16,11 +15,12 @@ tools it is given and what those tools allow — the state machine is the tools.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
-import anthropic
+import openai
 
 from . import llm
 
@@ -30,14 +30,14 @@ MAX_TOOL_ITERATIONS = 10
 MAX_TOKENS = 1024
 MAX_ATTEMPTS = 3
 BACKOFF_BASE_S = 1.0
-_RETRYABLE = (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APITimeoutError)
+_RETRYABLE = (openai.RateLimitError, openai.APITimeoutError, openai.InternalServerError)
 
-# A handler takes the tool input dict, returns (result_for_model, is_error).
+# A handler takes the parsed tool-input dict, returns (result_for_model, is_error).
 ToolHandler = Callable[[dict[str, Any]], Awaitable[tuple[Any, bool]]]
 
 
 class AgentError(RuntimeError):
-    """The conversation could not be advanced (Claude unreachable or rejected)."""
+    """The conversation could not be advanced (OpenAI unreachable or rejected)."""
 
 
 @dataclass
@@ -48,7 +48,14 @@ class Tool:
     handler: ToolHandler
 
     def schema(self) -> dict[str, Any]:
-        return {"name": self.name, "description": self.description, "input_schema": self.input_schema}
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.input_schema,
+            },
+        }
 
 
 @dataclass
@@ -56,38 +63,18 @@ class RunResult:
     final_text: str
     transcript: list[dict[str, Any]]
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
-    stopped: str = "end_turn"   # end_turn | max_iterations
+    stopped: str = "stop"  # stop | max_iterations
 
 
-def _serialize(resp: anthropic.types.Message) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for b in resp.content:
-        kind = getattr(b, "type", None)
-        if kind == "text":
-            out.append({"type": "text", "text": b.text})
-        elif kind == "tool_use":
-            out.append({"type": "tool_use", "id": b.id, "name": b.name, "input": b.input})
-        elif kind == "thinking":
-            out.append({"type": "thinking", "thinking": b.thinking, "signature": b.signature})
-        elif kind == "redacted_thinking":
-            out.append({"type": "redacted_thinking", "data": b.data})
-    return out
-
-
-def _text_of(resp: anthropic.types.Message) -> str:
-    return "\n".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
-
-
-async def _call_with_retry(client, *, model, system, messages, tools) -> anthropic.types.Message:
+async def _call_with_retry(client, *, model, messages, tools) -> Any:
     last: Exception | None = None
     for attempt in range(MAX_ATTEMPTS):
         try:
             return await llm.call(
-                client=client, model=model, system=system, messages=messages,
-                tools=tools, max_tokens=MAX_TOKENS,
+                client=client, model=model, messages=messages, tools=tools, max_tokens=MAX_TOKENS
             )
-        except anthropic.AuthenticationError as exc:
-            raise AgentError("ANTHROPIC_API_KEY was rejected by Anthropic.") from exc
+        except openai.AuthenticationError as exc:
+            raise AgentError("OPENAI_API_KEY was rejected by OpenAI.") from exc
         except _RETRYABLE as exc:
             last = exc
             if attempt == MAX_ATTEMPTS - 1:
@@ -95,9 +82,9 @@ async def _call_with_retry(client, *, model, system, messages, tools) -> anthrop
             delay = BACKOFF_BASE_S * (2 ** attempt)
             logger.warning("[redteam] %s; retry in %.1fs", type(exc).__name__, delay)
             await asyncio.sleep(delay)
-        except anthropic.APIError as exc:
-            raise AgentError(f"Could not reach Claude: {exc}") from exc
-    raise AgentError(f"Claude unavailable after {MAX_ATTEMPTS} attempts: {last}")
+        except openai.APIError as exc:
+            raise AgentError(f"Could not reach OpenAI: {exc}") from exc
+    raise AgentError(f"OpenAI unavailable after {MAX_ATTEMPTS} attempts: {last}")
 
 
 async def run_agent(
@@ -114,59 +101,60 @@ async def run_agent(
     client = llm.build_client(api_key)
     by_name = {t.name: t for t in tools}
     schemas = [t.schema() for t in tools]
-    messages: list[dict[str, Any]] = [{"role": "user", "content": first_message}]
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": first_message},
+    ]
     transcript: list[dict[str, Any]] = [{"role": "user", "content": first_message}]
     tool_calls: list[dict[str, Any]] = []
 
     try:
+        resp = None
         for _ in range(max_iterations):
-            resp = await _call_with_retry(
-                client, model=model, system=system, messages=messages, tools=schemas
+            resp = await _call_with_retry(client, model=model, messages=messages, tools=schemas)
+            msg = resp.choices[0].message
+            # Record the assistant turn verbatim so OpenAI keeps tool_call linkage.
+            messages.append(msg.model_dump(exclude_none=True))
+            transcript.append(
+                {"role": "assistant", "content": msg.content or "",
+                 "tool_calls": [tc.model_dump() for tc in (msg.tool_calls or [])]}
             )
-            content = _serialize(resp)
-            messages.append({"role": "assistant", "content": content})
-            transcript.append({"role": "assistant", "content": content})
 
-            if resp.stop_reason != "tool_use":
-                return RunResult(final_text=_text_of(resp), transcript=transcript, tool_calls=tool_calls)
+            if not msg.tool_calls:
+                return RunResult(final_text=msg.content or "", transcript=transcript, tool_calls=tool_calls)
 
-            results = []
-            for block in content:
-                if block.get("type") != "tool_use":
-                    continue
-                tool = by_name.get(block["name"])
+            for tc in msg.tool_calls:
+                name = tc.function.name
+                try:
+                    args = json.loads(tc.function.arguments or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                tool = by_name.get(name)
                 if tool is None:
-                    result, is_err = (f"No such tool: {block['name']}", True)
+                    result, is_err = (f"No such tool: {name}", True)
                 else:
                     try:
-                        result, is_err = await tool.handler(block["input"])
+                        result, is_err = await tool.handler(args)
                     except Exception as exc:  # a tool bug must not crash the run
-                        logger.exception("[redteam] tool %s raised", block["name"])
+                        logger.exception("[redteam] tool %s raised", name)
                         result, is_err = (f"Tool error: {exc}", True)
-                tool_calls.append(
-                    {"name": block["name"], "input": block["input"], "result": result, "is_error": is_err}
+                tool_calls.append({"name": name, "input": args, "result": result, "is_error": is_err})
+                messages.append(
+                    {"role": "tool", "tool_call_id": tc.id,
+                     "content": result if isinstance(result, str) else _as_text(result)}
                 )
-                results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block["id"],
-                        "content": result if isinstance(result, str) else _as_text(result),
-                        "is_error": is_err,
-                    }
+                transcript.append(
+                    {"role": "tool", "name": name, "is_error": is_err,
+                     "content": result if isinstance(result, str) else _as_text(result)}
                 )
-            messages.append({"role": "user", "content": results})
-            transcript.append({"role": "user", "content": results})
 
-        return RunResult(
-            final_text=_text_of(resp), transcript=transcript, tool_calls=tool_calls, stopped="max_iterations"
-        )
+        final = resp.choices[0].message.content or "" if resp else ""
+        return RunResult(final_text=final, transcript=transcript, tool_calls=tool_calls, stopped="max_iterations")
     finally:
         await client.close()
 
 
 def _as_text(result: Any) -> str:
-    import json
-
     try:
         return json.dumps(result, default=str)
     except TypeError:
