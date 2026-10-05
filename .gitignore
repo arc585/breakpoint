@@ -27,3 +27,6 @@ frontend/.vite/
 .DS_Store
 .idea/
 .vscode/
+
+# stray db from path bug (removed)
+backend/backend/
