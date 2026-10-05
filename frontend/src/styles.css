@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "ag-grid-community/styles/ag-grid.css";
+@import "ag-grid-community/styles/ag-theme-quartz.css";
+
+:root {
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: #0b0f14;
+  color: #e6edf3;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

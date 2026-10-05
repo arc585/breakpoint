@@ -1,7 +1,7 @@
 """
 Breakpoint API entrypoint.
 
-    uvicorn app.main:app --reload     (from backend/)
+    uvicorn app.main:app --reload --port 8008     (from backend/; 8008 avoids ORAI on 8000)
 
 Serves the dashboard's data API under /api and a health check at /. CORS is open
 to the Vite dev server; in production the dashboard is served from the same origin.
