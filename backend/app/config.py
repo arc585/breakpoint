@@ -30,8 +30,9 @@ class Settings(BaseSettings):
     paypal_webhook_id: str = ""
 
     # ── LLM (OpenAI drives the attacker agents + the Barista) ──
+    # Default to the cheapest reliable tool-caller; bump via BREAKPOINT_MODEL.
     openai_api_key: str = ""
-    breakpoint_model: str = "gpt-4.1"
+    breakpoint_model: str = "gpt-4o-mini"
 
     # ── Vulnerability toggles (ON = exploitable) ──
     trust_client_amount: bool = True

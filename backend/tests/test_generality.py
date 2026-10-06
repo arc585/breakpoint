@@ -94,3 +94,53 @@ def test_vulnerable_allows_over_refund(captured):
     ok, _ = checkout.refund_is_allowed(capture_amount=captured, already_refunded=0.0,
                                        requested=captured + 50, settings=_s(True))
     assert ok is True
+
+
+# ── Rule holds with prior partial refunds (already_refunded > 0), not just 0
+@pytest.mark.parametrize("captured,already,req,allowed", [
+    (100.0, 60.0, 40.0, True),     # exactly the remaining
+    (100.0, 60.0, 40.01, False),   # a cent over the remaining
+    (100.0, 99.0, 2.0, False),
+    (400.0, 100.0, 300.0, True),
+    (400.0, 100.0, 300.01, False),
+])
+def test_hardened_refund_respects_prior_refunds(captured, already, req, allowed):
+    ok, _ = checkout.refund_is_allowed(capture_amount=captured, already_refunded=already,
+                                       requested=req, settings=_s(False))
+    assert ok is allowed
+
+
+# ── Rule: fulfil ⟹ verified signature — across order values, forged vs genuine
+import asyncio  # noqa: E402
+
+from app.paypal.mock import MockPayPalClient  # noqa: E402
+from app.target.ledger import Ledger, OrderRecord  # noqa: E402
+from app.target.service import DuskCoffee  # noqa: E402
+
+
+def _webhook_fulfilled(list_total: float, *, vulnerable: bool, forged: bool) -> bool:
+    async def run() -> bool:
+        dusk = DuskCoffee(settings=_s(vulnerable), client=MockPayPalClient(), ledger=Ledger())
+        oid = f"ORD-{int(list_total)}"
+        dusk.ledger.put(OrderRecord(order_id=oid, items=[], list_total=list_total, charged_total=list_total))
+        event = dusk.forged_capture_event(oid)          # id starts WH-FORGED → mock verify = False
+        if not forged:
+            event["id"] = "WH-REAL-123"                  # mock verify = True
+        fulfilled, _ = await dusk.receive_webhook(event, headers={"paypal-transmission-sig": "x"})
+        return fulfilled
+    return asyncio.run(run())
+
+
+@pytest.mark.parametrize("list_total", [45.0, 100.0, 400.0])
+def test_hardened_rejects_forged_webhook(list_total):
+    assert _webhook_fulfilled(list_total, vulnerable=False, forged=True) is False
+
+
+@pytest.mark.parametrize("list_total", [45.0, 100.0, 400.0])
+def test_hardened_accepts_verified_webhook(list_total):
+    assert _webhook_fulfilled(list_total, vulnerable=False, forged=False) is True
+
+
+@pytest.mark.parametrize("list_total", [45.0, 100.0, 400.0])
+def test_vulnerable_fulfils_forged_webhook(list_total):
+    assert _webhook_fulfilled(list_total, vulnerable=True, forged=True) is True

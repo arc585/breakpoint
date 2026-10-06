@@ -22,7 +22,11 @@ CREATE TABLE IF NOT EXISTS runs (
     created_at  REAL NOT NULL,
     posture     TEXT NOT NULL,          -- json: which toggles were on
     is_hardened INTEGER NOT NULL,
-    label       TEXT NOT NULL DEFAULT ''
+    label       TEXT NOT NULL DEFAULT '',
+    model             TEXT NOT NULL DEFAULT '',
+    tokens_prompt     INTEGER NOT NULL DEFAULT 0,
+    tokens_completion INTEGER NOT NULL DEFAULT 0,
+    est_cost_usd      REAL NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS findings (
     id             TEXT PRIMARY KEY,
@@ -67,6 +71,13 @@ class Store:
         )
         self._conn.commit()
         return rid
+
+    def set_run_usage(self, run_id: str, *, model: str, prompt: int, completion: int, cost: float) -> None:
+        self._conn.execute(
+            "UPDATE runs SET model=?, tokens_prompt=?, tokens_completion=?, est_cost_usd=? WHERE id=?",
+            (model, int(prompt), int(completion), float(cost), run_id),
+        )
+        self._conn.commit()
 
     def list_runs(self) -> list[dict[str, Any]]:
         rows = self._conn.execute("SELECT * FROM runs ORDER BY created_at DESC").fetchall()
@@ -133,7 +144,10 @@ class Store:
         return {
             "id": r["id"], "created_at": r["created_at"],
             "posture": json.loads(r["posture"]), "is_hardened": bool(r["is_hardened"]),
-            "label": r["label"],
+            "label": r["label"], "model": r["model"],
+            "tokens_prompt": r["tokens_prompt"], "tokens_completion": r["tokens_completion"],
+            "tokens_total": r["tokens_prompt"] + r["tokens_completion"],
+            "est_cost_usd": r["est_cost_usd"],
         }
 
     @staticmethod

@@ -16,6 +16,7 @@ from ..paypal.mock import MockPayPalClient
 from ..store.models import Store
 from ..target.ledger import Ledger
 from ..target.service import DuskCoffee
+from . import metering
 from .attacks import ALL_ATTACKS
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ async def run_suite(
     dusk = DuskCoffee(settings=settings, client=client, ledger=Ledger())
     posture_label = label or ("hardened" if settings.is_hardened() else "vulnerable") + (" (live)" if use_live else " (mock)")
     run_id = store.create_run(posture=settings.posture(), is_hardened=settings.is_hardened(), label=posture_label)
+    metering.reset()
 
     try:
         for name, (fn, needs_llm) in ALL_ATTACKS.items():
@@ -50,6 +52,9 @@ async def run_suite(
     finally:
         await client.aclose()
 
+    m = metering.current()
+    store.set_run_usage(run_id, model=settings.breakpoint_model, prompt=m.prompt_tokens,
+                        completion=m.completion_tokens, cost=m.cost(settings.breakpoint_model))
     return run_id
 
 

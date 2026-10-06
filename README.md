@@ -1,14 +1,19 @@
 # Breakpoint
 
-**A sandbox security test bench for AI-enabled checkout.** Breakpoint runs a set
-of **attack scenarios** — four scripted business-logic checks and two that drive
-a live LLM against the shop's AI assistant — against **Dusk Coffee**, a
+**A PayPal-sandbox security test bench for AI-enabled checkout.**
+
+> As merchants prepare to let AI act across shopping *and* checkout, Breakpoint
+> tests whether a shop's AI assistant can be manipulated into creating a PayPal
+> order that violates the merchant's own pricing or fulfilment rules — and
+> verifies the result against PayPal sandbox state.
+
+It runs six **attack scenarios** — four scripted business-logic checks and two
+that drive a live LLM against the shop's AI assistant — against **Dusk Coffee**, a
 purpose-built, intentionally-vulnerable demo app, entirely in the **PayPal
-sandbox**. For each scenario it shows the order/payment state it caused, whether
-it succeeded, the exposure it created, and the **security rule (invariant)** that
-fixes it. Then it re-runs every scenario against the hardened build and shows
-them blocked — and a generality test suite proves each rule holds across many
-products, values, and coupon combinations, not just the demo payload.
+sandbox**. For each it shows the order/payment state it caused, whether it
+succeeded, the exposure it created (labelled by basis), and the **invariant** that
+fixes it. Then it re-runs every scenario against the hardened build and shows them
+blocked.
 
 Built for the **PayPal AI Hackathon** (2026).
 
@@ -50,28 +55,29 @@ system you do not own and have explicit permission to test.
 ## How it works
 
 ```
-  ┌──────────────┐     attacks      ┌───────────────────────────┐
-  │  Red team    │ ───────────────► │  Target: "Dusk Coffee"    │
-  │  (AI agents) │                  │  checkout API + Barista   │
-  │  6 attacks   │ ◄─────────────── │  (PayPal sandbox)         │
-  └──────┬───────┘   real PayPal    └───────────────────────────┘
-         │           state decides
+  ┌───────────────┐    scenarios     ┌───────────────────────────┐
+  │  Red team     │ ───────────────► │  Target: "Dusk Coffee"    │
+  │  4 scripted   │                  │  checkout API + Barista   │
+  │  + 2 LLM      │ ◄─────────────── │  (PayPal sandbox)         │
+  └──────┬────────┘   sandbox        └───────────────────────────┘
+         │            state decides
          ▼
-  ┌──────────────┐
-  │  Judge       │  success is read from PayPal/order state, never the model's claim
-  └──────┬───────┘
+  ┌───────────────┐
+  │  Judge        │  success read from PayPal sandbox / ledger state, not the model's claim
+  └──────┬────────┘
          ▼
-  ┌──────────────┐
-  │  Dashboard   │  findings grid · transcript · API calls · $ drained · the fix
-  │  (AG Grid)   │  before (vulnerable) vs after (hardened)
-  └──────────────┘
+  ┌───────────────┐
+  │  Dashboard    │  findings grid · transcript · txn ids · exposure by basis · the fix+invariant
+  │  (AG Grid)    │  before (vulnerable) vs after (hardened)
+  └───────────────┘
 ```
 
 - **Target — Dusk Coffee:** a small coffee roaster with a PayPal Orders v2
   checkout and an AI assistant ("Barista"). Vulnerability toggles (see
   `.env.example`) flip it between **exploitable** and **hardened**.
-- **Red team:** six attacker agents, each a Claude agent that drives tools
-  against the target. A judge confirms each exploit from real PayPal state.
+- **Red team:** six scenarios — four scripted checks, and two **LLM attackers**
+  (OpenAI SDK) that converse with Barista. A judge confirms each outcome from
+  real PayPal sandbox state.
 - **Report:** a React + AG Grid dashboard of runs and findings.
 
 ## Attack scenarios (v1)

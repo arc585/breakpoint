@@ -26,8 +26,8 @@ from . import llm
 
 logger = logging.getLogger(__name__)
 
-MAX_TOOL_ITERATIONS = 10
-MAX_TOKENS = 1024
+MAX_TOOL_ITERATIONS = 5     # keep agent runs short to bound token spend
+MAX_TOKENS = 512
 MAX_ATTEMPTS = 3
 BACKOFF_BASE_S = 1.0
 _RETRYABLE = (openai.RateLimitError, openai.APITimeoutError, openai.InternalServerError)

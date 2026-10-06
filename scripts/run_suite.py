@@ -49,9 +49,12 @@ async def main() -> None:
 
     run_id = await run_suite(settings=settings, store=store, use_live=args.live, only=only)
     stats = store.run_stats(run_id)
+    run = store.get_run(run_id)
     print(f"run {run_id}  [{args.target}{' live' if args.live else ' mock'}]")
-    print(f"  {stats['succeeded']}/{stats['total']} attacks succeeded · "
-          f"${stats['amount_at_risk']:.2f} drained (sandbox)")
+    print(f"  {stats['succeeded']}/{stats['total']} scenarios exploited · "
+          f"exposure by basis: " +
+          (", ".join(f"{k}=${v:.2f}" for k, v in stats['exposure_by_basis'].items()) or "none"))
+    print(f"  LLM usage: {run['tokens_total']} tokens ({run['model']}) · est ${run['est_cost_usd']:.4f}")
     for f in store.list_findings(run_id):
         mark = {"SUCCEEDED": "✗", "BLOCKED": "✓", "ERROR": "!"}.get(f["status"], "?")
         print(f"   {mark} {f['attack']:<18} {f['status']:<10} ${f['amount_at_risk']:.2f}  {f['summary'][:70]}")

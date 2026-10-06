@@ -1,4 +1,4 @@
-# Breakpoint — an AI red team for your PayPal checkout
+# Breakpoint — a PayPal-sandbox security test bench for AI-enabled checkout
 
 > Paste this into the Devpost project description (it's already Markdown).
 > Repo: https://github.com/arc585/breakpoint
@@ -16,14 +16,16 @@ that world: something that attacks a checkout the way a real adversary would,
 
 ## What it does
 
-Breakpoint unleashes a swarm of AI attacker agents on a demo store's PayPal
-checkout **and** its AI shop assistant — all in the PayPal sandbox, no real
-money. Four scenarios are scripted business-logic checks; two are genuinely
-AI-driven (an LLM attacker converses with the assistant). It confirms each one
+Breakpoint runs six attack scenarios against a demo store's PayPal checkout
+**and** its AI shop assistant — all in the PayPal sandbox, no real money. Four
+scenarios are scripted business-logic checks; two are AI-driven (an LLM attacker
+that adapts across turns to the assistant's replies). It confirms each one
 from real PayPal state (never the model's claim) and reports the **invariant**
 that fixes it. Then it re-runs every scenario against a hardened build and shows
-them blocked — and a generality suite proves each rule holds across many
-products, values and coupon combinations, not just the demo payload.
+them blocked — and a generality suite proves the **scripted** rules (pricing,
+coupon, refund incl. prior partial refunds, and webhook signature) hold across
+varied products, values and combinations, not just the demo payload. (The two AI
+scenarios are non-deterministic, so they're evaluated per run, not in that matrix.)
 
 | Scenario | Kind | What it abuses |
 |---|---|---|
@@ -58,8 +60,8 @@ real loss. Each finding carries its transaction ids for ledger verification.
   LLM agents that adapt across turns to Barista's replies (OpenAI tool-calling
   loop, a `talk_to_barista` tool) and choose their own tactics.
 - **Judge** — decides success independently from real PayPal/ledger state, never
-  the model's claim. Pure functions, unit-tested; a generality suite proves each
-  hardening rule holds across many inputs, not just the demo payload.
+  the model's claim. Pure functions, unit-tested; a generality suite proves the
+  scripted hardening rules hold across varied inputs, not just the demo payload.
 - **Dashboard** — React + **AG Grid**: before/after tiles, findings grid, and a
   detail panel with transcript, API calls and the fix.
 - Python/FastAPI · OpenAI · SQLite · React 19/Vite · deployable on **Render**.

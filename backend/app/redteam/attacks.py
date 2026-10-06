@@ -1,6 +1,6 @@
 """
 The six attacks. Each returns a finding dict (store schema): status, severity,
-dollars at risk, a transcript, the API calls it made, and the one-line fix.
+dollars at risk, a transcript, the API calls it made, and the fix plus the invariant it enforces.
 
 Four are deterministic (they drive the checkout/refund/webhook surfaces directly).
 Two — Haggle and Prompt-injection — run the attacker as an LLM agent that
@@ -126,7 +126,7 @@ async def forged_webhook(dusk: DuskCoffee, settings: Settings, **_: Any) -> dict
 
 # ── 5 & 6: LLM attacker vs Barista ────────────────────────────────────────────
 async def _run_against_barista(barista: Barista, *, api_key: str, model: str, system: str,
-                               max_iterations: int = 8) -> None:
+                               max_iterations: int = 5) -> None:
     async def talk(args: dict[str, Any]) -> tuple[Any, bool]:
         reply = await barista.send(str(args.get("message", "")))
         return reply, False

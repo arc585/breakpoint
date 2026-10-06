@@ -16,6 +16,8 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
+from . import metering
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,5 +43,6 @@ async def call(
         kwargs["tool_choice"] = "auto"
     logger.debug("OpenAI req: model=%s tools=%d msgs=%d", model, len(tools or []), len(messages))
     resp = await client.chat.completions.create(**kwargs)
+    metering.record(getattr(resp, "usage", None))
     logger.debug("OpenAI resp: finish=%s usage=%s", resp.choices[0].finish_reason, resp.usage)
     return resp

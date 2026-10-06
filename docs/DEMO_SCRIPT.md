@@ -6,12 +6,14 @@ Record the dashboard (http://localhost:5173) with the backend running.
 ---
 
 **0:00–0:20 — The hook**
-> "Every store is adding an AI shopping assistant and letting agents pay through
-> PayPal. Nobody's checking whether those agents can be *tricked*. Breakpoint is
-> the red team that finds out — before real fraudsters do."
+> "As merchants prepare to let AI act across shopping and checkout, who checks
+> whether the shop's own AI assistant can be talked into breaking the shop's
+> pricing and fulfilment rules? Breakpoint tests exactly that, in the PayPal
+> sandbox."
 
-Show the dashboard landing: the two tiles — **Vulnerable 6/6 exploited, $1,624
-drained** vs **Hardened 6/6 blocked, $0**.
+Show the dashboard landing: the two tiles — **Vulnerable 6/6 exploited** vs
+**Hardened 6/6 blocked**, with exposure labelled by basis (uncollected order
+value vs estimated exposure).
 
 **0:20–0:50 — What it is**
 > "It attacks a demo store's PayPal checkout *and* its AI shop assistant, in the
@@ -43,11 +45,12 @@ Switch the run selector to the **hardened** run (or click "Run hardened").
 > price, caps discounts, verifies webhook signatures, and treats review text as
 > data, not instructions. Six for six: blocked."
 
-Show the green tile / all BLOCKED rows. Click one → read the one-line fix.
+Show the green tile / all BLOCKED rows. Click one → read the fix and the invariant it enforces.
 
 **2:45–3:00 — Close**
-> "Breakpoint: the firewall for agentic commerce. Real attacks, real PayPal,
-> real fixes — and it's open source."
+> "Breakpoint: a security test bench for AI-enabled checkout. Real attack
+> scenarios, verified against PayPal sandbox state, with the fix for each — and
+> it's open source."
 
 Show the GitHub URL: github.com/arc585/breakpoint
 
