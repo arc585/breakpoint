@@ -5,15 +5,23 @@ export type Finding = {
   status: "SUCCEEDED" | "BLOCKED" | "ERROR";
   severity: string;
   amount_at_risk: number;
+  loss_kind: string;
   currency: string;
   summary: string;
   fix: string;
+  invariant: string;
   transcript: any[];
   api_calls: any[];
   evidence: Record<string, any>;
 };
 
-export type Stats = { total: number; succeeded: number; blocked: number; amount_at_risk: number };
+export type Stats = {
+  total: number;
+  succeeded: number;
+  blocked: number;
+  amount_at_risk: number;
+  exposure_by_kind: Record<string, number>;
+};
 export type Run = {
   id: string;
   created_at: number;

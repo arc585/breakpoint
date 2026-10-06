@@ -1,15 +1,28 @@
 # Breakpoint
 
-**An AI red team for your PayPal checkout.** Breakpoint unleashes a swarm of AI
-attacker agents on a store's checkout *and* its AI shopping assistant, finds the
-**business-logic** holes that normal scanners miss — haggling the shop bot into a
-99% discount, slipping instructions into a product review, tampering with the
-cart total, stacking coupons, double-dipping a refund with a dispute, forging a
-"paid" webhook — and hands back a ranked report with the exact attack transcript,
-the real PayPal API calls, the money it drained, and a one-line fix. Then it
-re-runs the same attacks against the hardened store and shows them blocked.
+**A sandbox security test bench for AI-enabled checkout.** Breakpoint runs a set
+of **attack scenarios** — four scripted business-logic checks and two that drive
+a live LLM against the shop's AI assistant — against **Dusk Coffee**, a
+purpose-built, intentionally-vulnerable demo app, entirely in the **PayPal
+sandbox**. For each scenario it shows the order/payment state it caused, whether
+it succeeded, the exposure it created, and the **security rule (invariant)** that
+fixes it. Then it re-runs every scenario against the hardened build and shows
+them blocked — and a generality test suite proves each rule holds across many
+products, values, and coupon combinations, not just the demo payload.
 
 Built for the **PayPal AI Hackathon** (2026).
+
+### Scope & honesty
+- It tests **only the bundled Dusk Coffee app**, which is built to be vulnerable.
+  It is **not** a tool for testing arbitrary live stores.
+- Four scenarios (amount tampering, coupon stacking, refund double-dip, forged
+  webhook) are **scripted** checks. Two (**haggle**, **prompt injection**) are
+  genuinely **AI-driven** — an LLM attacker converses with the shop assistant.
+- In the AI cases **PayPal charges exactly what the order says**; the flaw is the
+  shop's pricing/discount policy, not PayPal. The report states this.
+- "Exposure" is reported **by category** (underpaid orders, excess discount
+  beyond the cap, goods shipped unpaid, duplicate refunds) — never a single
+  blended number that sums unlike quantities.
 
 ---
 
@@ -51,36 +64,42 @@ system you do not own and have explicit permission to test.
   against the target. A judge confirms each exploit from real PayPal state.
 - **Report:** a React + AG Grid dashboard of runs and findings.
 
-## Attack catalog (v1)
+## Attack scenarios (v1)
 
-| Attack | What it abuses | PayPal surface |
-|--------|----------------|----------------|
-| Haggle | talks the shop AI into an oversized discount | Orders + the AI agent |
-| Prompt injection | hidden instructions in a review/support message | the AI agent's tools |
-| Amount tampering | client-supplied cart total trusted | Orders v2 create/capture |
-| Coupon stacking | coupons stack past the policy cap | Orders + discount logic |
-| Refund double-dip | refund, then open a sandbox dispute for the same txn | Refunds + Disputes |
-| Forged webhook | fake `PAYMENT.CAPTURE.COMPLETED`, no signature check | Webhooks + verify-signature |
+| Scenario | Kind | What it abuses | Invariant the fix enforces |
+|----------|------|----------------|----------------------------|
+| Amount tampering | scripted | client-supplied cart total trusted | `order.amount == server_price(cart)` |
+| Coupon stacking | scripted | coupons stack past the policy cap | `discount ≤ cap AND ≤ 1 coupon` |
+| Refund double-dip | scripted | over-refund / refund + dispute same charge | `Σ refunds ≤ captured; one payout per charge` |
+| Forged webhook | scripted | fake `PAYMENT.CAPTURE.COMPLETED`, no sig check | `fulfil ⟹ verify_webhook_signature == SUCCESS` |
+| Haggle | **AI** | LLM talks the shop assistant below cost | `assistant_discount ≤ cap; server sets final price` |
+| Prompt injection | **AI** | hidden instruction in a review hijacks the assistant | `tool-returned text is data, never instructions` |
 
 ## Run it (local)
 
-> Requires a free PayPal **sandbox** app and an Anthropic API key.
+Keys needed depend on how much you want to exercise:
+- **Four scripted scenarios on the mock PayPal** — no keys at all (self-contained).
+- **The two AI scenarios** (haggle, prompt injection) — need an `OPENAI_API_KEY`.
+- **`--live`** against the real PayPal sandbox — needs a **US** sandbox business
+  account + app (India accounts can't do Advanced card processing).
 
 ```bash
-cp .env.example .env     # fill in PayPal sandbox + Anthropic keys
+cp .env.example .env                 # OPENAI_API_KEY for the AI scenarios; PayPal keys only for --live
 cd backend && pip install -r requirements.txt
-python ../scripts/seed_catalog.py
-python ../scripts/run_suite.py --target vulnerable   # then: --target hardened
-uvicorn app.main:app --reload                        # API + dashboard data
-# frontend:
-cd ../frontend && npm install && npm run dev
+pytest                               # unit + generality suite, no keys/network
+python ../scripts/run_suite.py --target vulnerable   # mock; add --live for real sandbox
+python ../scripts/run_suite.py --target hardened     # same scenarios, now blocked
+uvicorn app.main:app --port 8008                     # API + dashboard data
+# dashboard:
+cd ../frontend && npm install && npm run dev          # http://localhost:5173
 ```
 
-Full judge instructions and sandbox test credentials are in the Devpost
-submission (kept out of this public repo).
+"Self-contained mock" means no PayPal and no network for the scripted scenarios;
+the AI scenarios still call the LLM. Judge instructions and sandbox test
+credentials are in the Devpost submission's private field (kept out of this repo).
 
 ## Stack
-Python 3.12 · FastAPI · Anthropic SDK · SQLite · React 19 + Vite + AG Grid ·
+Python 3.12 · FastAPI · OpenAI SDK · SQLite · React 19 + Vite + AG Grid ·
 deployable on Render.
 
 ## License

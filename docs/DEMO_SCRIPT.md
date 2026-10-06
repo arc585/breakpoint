@@ -31,8 +31,9 @@ show the real capture amount.
 **1:30–2:10 — The AI gets played (prompt injection + haggle)**
 Click **"Hidden instruction in a review hijacks the shop AI."**
 > "A customer hid an instruction in a product review. When the shop's AI reads
-> reviews, it obeys — and gives a 95% discount. And over here, an attacker just
-> *argues* the AI down below cost."
+> reviews, it obeys — and discounts the item far below cost. And over here, an
+> attacker just *argues* the AI down. Note: PayPal charges exactly what the order
+> says — the flaw is the assistant's discount authority, not PayPal."
 
 Show the Barista transcript lines.
 

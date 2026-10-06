@@ -32,9 +32,11 @@ CREATE TABLE IF NOT EXISTS findings (
     status         TEXT NOT NULL,        -- SUCCEEDED | BLOCKED | ERROR
     severity       TEXT NOT NULL,        -- critical | high | medium | low
     amount_at_risk REAL NOT NULL DEFAULT 0,
+    loss_kind      TEXT NOT NULL DEFAULT 'none',
     currency       TEXT NOT NULL DEFAULT 'USD',
     summary        TEXT NOT NULL DEFAULT '',
     fix            TEXT NOT NULL DEFAULT '',
+    invariant      TEXT NOT NULL DEFAULT '',
     transcript     TEXT NOT NULL DEFAULT '[]',   -- json
     api_calls      TEXT NOT NULL DEFAULT '[]',   -- json
     evidence       TEXT NOT NULL DEFAULT '{}',   -- json: what proved success
@@ -77,15 +79,16 @@ class Store:
         fid = uuid.uuid4().hex
         self._conn.execute(
             """INSERT INTO findings
-               (id, run_id, attack, title, status, severity, amount_at_risk, currency,
-                summary, fix, transcript, api_calls, evidence, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               (id, run_id, attack, title, status, severity, amount_at_risk, loss_kind, currency,
+                summary, fix, invariant, transcript, api_calls, evidence, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 fid, run_id,
                 finding["attack"], finding.get("title", finding["attack"]),
                 finding["status"], finding.get("severity", "medium"),
-                float(finding.get("amount_at_risk", 0)), finding.get("currency", "USD"),
-                finding.get("summary", ""), finding.get("fix", ""),
+                float(finding.get("amount_at_risk", 0)), finding.get("loss_kind", "none"),
+                finding.get("currency", "USD"),
+                finding.get("summary", ""), finding.get("fix", ""), finding.get("invariant", ""),
                 json.dumps(finding.get("transcript", [])),
                 json.dumps(finding.get("api_calls", [])),
                 json.dumps(finding.get("evidence", {})),
@@ -104,10 +107,16 @@ class Store:
     def run_stats(self, run_id: str) -> dict[str, Any]:
         rows = self.list_findings(run_id)
         succeeded = [f for f in rows if f["status"] == "SUCCEEDED"]
+        # Break exposure down by kind — an underpaid order, goods shipped unpaid,
+        # and a duplicate refund are different dollars; don't present one blended total.
+        by_kind: dict[str, float] = {}
+        for f in succeeded:
+            by_kind[f["loss_kind"]] = round(by_kind.get(f["loss_kind"], 0.0) + f["amount_at_risk"], 2)
         return {
             "total": len(rows),
             "succeeded": len(succeeded),
             "blocked": len([f for f in rows if f["status"] == "BLOCKED"]),
+            "exposure_by_kind": by_kind,
             "amount_at_risk": round(sum(f["amount_at_risk"] for f in succeeded), 2),
         }
 
@@ -125,8 +134,8 @@ class Store:
         return {
             "id": r["id"], "run_id": r["run_id"], "attack": r["attack"], "title": r["title"],
             "status": r["status"], "severity": r["severity"],
-            "amount_at_risk": r["amount_at_risk"], "currency": r["currency"],
-            "summary": r["summary"], "fix": r["fix"],
+            "amount_at_risk": r["amount_at_risk"], "loss_kind": r["loss_kind"], "currency": r["currency"],
+            "summary": r["summary"], "fix": r["fix"], "invariant": r["invariant"],
             "transcript": json.loads(r["transcript"]), "api_calls": json.loads(r["api_calls"]),
             "evidence": json.loads(r["evidence"]), "created_at": r["created_at"],
         }

@@ -5,6 +5,28 @@ import { api, type Finding, type Run, type Summary } from "./api";
 
 const money = (n: number) => "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const LOSS_LABELS: Record<string, string> = {
+  underpayment: "Underpaid orders",
+  excess_discount: "Excess discount (beyond cap)",
+  goods_unpaid: "Goods shipped unpaid",
+  duplicate_refund: "Duplicate refunds",
+};
+
+function ExposureBreakdown({ by }: { by: Record<string, number> }) {
+  const kinds = Object.entries(by).filter(([k]) => k !== "none");
+  if (!kinds.length) return null;
+  return (
+    <div className="text-xs opacity-80 mb-4 flex flex-wrap gap-x-4 gap-y-1">
+      <span className="opacity-50">Exposure is a sum of distinct categories, not one blended number:</span>
+      {kinds.map(([k, v]) => (
+        <span key={k}>
+          <b>{LOSS_LABELS[k] ?? k}</b> {money(v)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function Tile({ run, kind }: { run: Run | null; kind: "vuln" | "hard" }) {
   const good = kind === "hard";
   const s = run?.stats;
@@ -25,7 +47,7 @@ function Tile({ run, kind }: { run: Run | null; kind: "vuln" | "hard" }) {
             {good ? `${s.blocked}/${s.total} blocked` : `${s.succeeded}/${s.total} exploited`}
           </div>
           <div className="mt-1 text-lg" style={{ color: good ? "#22c55e" : "#ef4444" }}>
-            {good ? "$0.00 lost" : `${money(s.amount_at_risk)} drained (sandbox)`}
+            {good ? "$0.00 lost" : `${money(s.amount_at_risk)} total exposure (sandbox)`}
           </div>
         </>
       ) : (
@@ -47,7 +69,18 @@ function Detail({ f }: { f: Finding | null }) {
       <div className="rounded-lg p-3" style={{ background: "rgba(59,130,246,.1)", border: "1px solid rgba(59,130,246,.3)" }}>
         <div className="text-xs uppercase opacity-70 mb-1">The fix</div>
         <div>{f.fix || "—"}</div>
+        {f.invariant && (
+          <div className="mt-2 text-xs">
+            <span className="opacity-60">Invariant enforced: </span>
+            <code style={{ background: "rgba(255,255,255,.08)", padding: "1px 5px", borderRadius: 4 }}>{f.invariant}</code>
+          </div>
+        )}
       </div>
+      {f.loss_kind && f.loss_kind !== "none" && (
+        <div className="text-xs opacity-70">
+          Loss type: <b>{LOSS_LABELS[f.loss_kind] ?? f.loss_kind}</b> · {money(f.amount_at_risk)}
+        </div>
+      )}
       <div>
         <div className="text-xs uppercase opacity-60 mb-1">Attack transcript</div>
         <ol className="space-y-1">
@@ -125,15 +158,22 @@ export default function App() {
       <header className="mb-5">
         <h1 className="text-2xl font-bold">Breakpoint</h1>
         <p className="opacity-70">
-          An AI red team that attacks your PayPal checkout and its AI shop assistant in sandbox,
-          finds the exploits real fraudsters would, and hands you each one with a one-line fix.
+          A sandbox security test bench for AI-enabled checkout. It runs scripted and AI-driven
+          attack scenarios against <b>Dusk Coffee</b> — a purpose-built, intentionally-vulnerable
+          demo app — in the PayPal sandbox, shows the order/payment state each one caused, and the
+          rule that fixes it.
+        </p>
+        <p className="opacity-40 text-xs mt-1">
+          Scope: tests the bundled Dusk Coffee app only, never arbitrary stores. 4 scenarios are
+          scripted checks; 2 (haggle, prompt-injection) drive a live LLM against the shop assistant.
         </p>
       </header>
 
-      <div className="flex gap-4 mb-5">
+      <div className="flex gap-4 mb-3">
         <Tile run={summary?.vulnerable ?? null} kind="vuln" />
         <Tile run={summary?.hardened ?? null} kind="hard" />
       </div>
+      {summary?.vulnerable && <ExposureBreakdown by={summary.vulnerable.stats.exposure_by_kind} />}
 
       <div className="flex items-center gap-3 mb-3">
         <select

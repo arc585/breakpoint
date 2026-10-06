@@ -18,24 +18,29 @@ that world: something that attacks a checkout the way a real adversary would,
 
 Breakpoint unleashes a swarm of AI attacker agents on a demo store's PayPal
 checkout **and** its AI shop assistant — all in the PayPal sandbox, no real
-money. It hunts **business-logic** exploits that scanners miss, confirms each one
-from real PayPal state, and produces a ranked report with the exact attack
-transcript, the PayPal API calls, the dollars it drained, and a one-line fix.
-Then it re-runs the same attacks against a hardened build and shows them blocked.
+money. Four scenarios are scripted business-logic checks; two are genuinely
+AI-driven (an LLM attacker converses with the assistant). It confirms each one
+from real PayPal state (never the model's claim) and reports the **invariant**
+that fixes it. Then it re-runs every scenario against a hardened build and shows
+them blocked — and a generality suite proves each rule holds across many
+products, values and coupon combinations, not just the demo payload.
 
-Six attacks in v1:
+| Scenario | Kind | What it abuses |
+|---|---|---|
+| Amount tampering | scripted | client-supplied cart total trusted at create-order |
+| Coupon stacking | scripted | coupons stacked past the policy cap |
+| Refund double-dip | scripted | over-refund, or refund + a dispute on the same charge |
+| Forged webhook | scripted | a fake `PAYMENT.CAPTURE.COMPLETED` with no signature check |
+| Haggle | **AI** | an LLM talks the shop assistant into selling below cost |
+| Prompt injection | **AI** | a hidden instruction in a review hijacks the assistant |
 
-| Attack | What it abuses |
-|---|---|
-| Amount tampering | client-supplied cart total trusted at create-order |
-| Coupon stacking | coupons stacked past the policy cap |
-| Refund double-dip | over-refund + a dispute on the same charge |
-| Forged webhook | a fake `PAYMENT.CAPTURE.COMPLETED` with no signature check |
-| Haggle | social-engineering the shop AI into selling below cost |
-| Prompt injection | a hidden instruction in a product review hijacks the shop AI |
-
-**The money shot:** an AI agent buys a $400 grinder for $4 — and on the hardened
-store, the same attack is blocked.
+**The money shot — two distinct flaws:** (1) *Amount tampering* — the shop puts
+the client's $4 into a $400 order and PayPal captures $4 as asked; the bug is
+trusting the client's number. (2) *Haggle* — the LLM assistant grants a big
+discount, the shop creates a low-price order, and PayPal charges it **correctly**;
+the bug is the assistant's discount authority, **not PayPal**. Both are blocked on
+the hardened store. Exposure is reported by category (underpaid orders, excess
+discount, goods shipped unpaid, duplicate refunds), never one blended total.
 
 ## How we built it
 
