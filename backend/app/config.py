@@ -29,10 +29,10 @@ class Settings(BaseSettings):
     paypal_buyer_email: str = ""
     paypal_webhook_id: str = ""
 
-    # ── LLM (OpenAI drives the attacker agents + the Barista) ──
-    # Default to the cheapest reliable tool-caller; bump via BREAKPOINT_MODEL.
-    openai_api_key: str = ""
-    breakpoint_model: str = "gpt-4o-mini"
+    # ── LLM (Anthropic Claude drives the attacker agents + the Barista) ──
+    # Default to the cheapest model (Haiku); bump via BREAKPOINT_MODEL.
+    anthropic_api_key: str = ""
+    breakpoint_model: str = "claude-haiku-4-5-20251001"
 
     # ── Vulnerability toggles (ON = exploitable) ──
     trust_client_amount: bool = True

@@ -76,7 +76,7 @@ system you do not own and have explicit permission to test.
   checkout and an AI assistant ("Barista"). Vulnerability toggles (see
   `.env.example`) flip it between **exploitable** and **hardened**.
 - **Red team:** six scenarios — four scripted checks, and two **LLM attackers**
-  (OpenAI SDK) that converse with Barista. A judge confirms each outcome from
+  (Anthropic Claude SDK) that converse with Barista. A judge confirms each outcome from
   real PayPal sandbox state.
 - **Report:** a React + AG Grid dashboard of runs and findings.
 
@@ -95,12 +95,12 @@ system you do not own and have explicit permission to test.
 
 Keys needed depend on how much you want to exercise:
 - **Four scripted scenarios on the mock PayPal** — no keys at all (self-contained).
-- **The two AI scenarios** (haggle, prompt injection) — need an `OPENAI_API_KEY`.
+- **The two AI scenarios** (haggle, prompt injection) — need an `ANTHROPIC_API_KEY`.
 - **`--live`** against the real PayPal sandbox — needs a **US** sandbox business
   account + app (India accounts can't do Advanced card processing).
 
 ```bash
-cp .env.example .env                 # OPENAI_API_KEY for the AI scenarios; PayPal keys only for --live
+cp .env.example .env                 # ANTHROPIC_API_KEY for the AI scenarios; PayPal keys only for --live
 cd backend && pip install -r requirements.txt
 pytest                               # unit + generality suite, no keys/network
 python ../scripts/run_suite.py --target vulnerable   # mock; add --live for real sandbox
@@ -115,7 +115,7 @@ the AI scenarios still call the LLM. Judge instructions and sandbox test
 credentials are in the Devpost submission's private field (kept out of this repo).
 
 ## Stack
-Python 3.12 · FastAPI · OpenAI SDK · SQLite · React 19 + Vite + AG Grid ·
+Python 3.12 · FastAPI · Anthropic SDK (Claude Haiku) · SQLite · React 19 + Vite + AG Grid ·
 deployable on Render.
 
 ## License

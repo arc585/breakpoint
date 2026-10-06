@@ -1,5 +1,5 @@
 """
-Tiny OpenAI usage meter — tracks tokens and an estimated cost per run.
+Tiny LLM usage meter — tracks tokens and an estimated cost per run.
 
 Every LLM call (attacker loop + Barista) records its response `usage` here; the
 orchestrator resets the meter at the start of a run and reads the totals at the
@@ -10,8 +10,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Approximate USD per 1M tokens (input, output). Edit if OpenAI prices change.
+# Approximate USD per 1M tokens (input, output). Edit if prices change.
 PRICING: dict[str, tuple[float, float]] = {
+    # Anthropic (default)
+    "claude-haiku-4-5": (1.00, 5.00),
+    "claude-sonnet-4-5": (3.00, 15.00),
+    "claude-opus-4-5": (5.00, 25.00),
+    # OpenAI (if BREAKPOINT_MODEL is pointed back at one)
     "gpt-4.1-nano": (0.10, 0.40),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4.1-mini": (0.40, 1.60),
@@ -48,9 +53,16 @@ def current() -> Meter:
 
 
 def record(usage: object) -> None:
-    """Add one response's usage. Accepts an OpenAI usage object or None."""
+    """Add one response's usage. Accepts an Anthropic usage (input_tokens/
+    output_tokens) or an OpenAI usage (prompt_tokens/completion_tokens) or None."""
     if usage is None:
         return
+    pt = getattr(usage, "prompt_tokens", None)
+    if pt is None:
+        pt = getattr(usage, "input_tokens", 0)
+    ct = getattr(usage, "completion_tokens", None)
+    if ct is None:
+        ct = getattr(usage, "output_tokens", 0)
     _current.calls += 1
-    _current.prompt_tokens += int(getattr(usage, "prompt_tokens", 0) or 0)
-    _current.completion_tokens += int(getattr(usage, "completion_tokens", 0) or 0)
+    _current.prompt_tokens += int(pt or 0)
+    _current.completion_tokens += int(ct or 0)

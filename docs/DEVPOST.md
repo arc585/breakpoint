@@ -57,14 +57,14 @@ real loss. Each finding carries its transaction ids for ledger verification.
   **Barista**, an LLM shop assistant in unsafe and hardened forms. Vulnerability
   toggles flip the whole store between exploitable and hardened.
 - **Red team** — four scripted scenarios drive the checkout directly; two are
-  LLM agents that adapt across turns to Barista's replies (OpenAI tool-calling
+  LLM agents that adapt across turns to Barista's replies (Anthropic Claude tool-calling
   loop, a `talk_to_barista` tool) and choose their own tactics.
 - **Judge** — decides success independently from real PayPal/ledger state, never
   the model's claim. Pure functions, unit-tested; a generality suite proves the
   scripted hardening rules hold across varied inputs, not just the demo payload.
 - **Dashboard** — React + **AG Grid**: before/after tiles, findings grid, and a
   detail panel with transcript, API calls and the fix.
-- Python/FastAPI · OpenAI · SQLite · React 19/Vite · deployable on **Render**.
+- Python/FastAPI · Anthropic (Claude Haiku) · SQLite · React 19/Vite · deployable on **Render**.
 
 ## Challenges we ran into
 

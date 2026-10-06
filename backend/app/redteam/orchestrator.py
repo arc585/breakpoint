@@ -3,7 +3,7 @@ Run the attack suite against one posture and persist the findings.
 
 Picks the real PayPal sandbox client (--live) or the deterministic mock, builds
 one Dusk Coffee target, runs each attack, and writes a finding per attack to the
-store. LLM attacks are skipped (recorded as ERROR) when no OpenAI key is set.
+store. LLM attacks are skipped (recorded as ERROR) when no ANTHROPIC_API_KEY is set.
 """
 from __future__ import annotations
 
@@ -39,11 +39,11 @@ async def run_suite(
         for name, (fn, needs_llm) in ALL_ATTACKS.items():
             if only and name not in only:
                 continue
-            if needs_llm and not settings.openai_api_key:
-                store.add_finding(run_id, _error_finding(name, "no OPENAI_API_KEY set — LLM attack skipped"))
+            if needs_llm and not settings.anthropic_api_key:
+                store.add_finding(run_id, _error_finding(name, "no ANTHROPIC_API_KEY set — LLM attack skipped"))
                 continue
             try:
-                finding = await fn(dusk, settings, api_key=settings.openai_api_key,
+                finding = await fn(dusk, settings, api_key=settings.anthropic_api_key,
                                    model=settings.breakpoint_model, live=use_live)
             except Exception as exc:  # one broken attack must not sink the run
                 logger.exception("[orchestrator] attack %s failed", name)
