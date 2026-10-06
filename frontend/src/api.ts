@@ -6,10 +6,12 @@ export type Finding = {
   severity: string;
   amount_at_risk: number;
   loss_kind: string;
+  amount_basis: string;
   currency: string;
   summary: string;
   fix: string;
   invariant: string;
+  transaction_ids: Record<string, any>;
   transcript: any[];
   api_calls: any[];
   evidence: Record<string, any>;
@@ -21,6 +23,7 @@ export type Stats = {
   blocked: number;
   amount_at_risk: number;
   exposure_by_kind: Record<string, number>;
+  exposure_by_basis: Record<string, number>;
 };
 export type Run = {
   id: string;

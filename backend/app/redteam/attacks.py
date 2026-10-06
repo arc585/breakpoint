@@ -24,7 +24,8 @@ GRINDER = [{"sku": "DC-EQP-GRND", "qty": 1}]   # $400 hero item
 ESPRESSO = [{"sku": "DC-ESP-250", "qty": 1}]   # $18
 
 
-def _finding(attack: str, title: str, v: judge.Verdict, transcript: list, api_calls: list) -> dict[str, Any]:
+def _finding(attack: str, title: str, v: judge.Verdict, transcript: list, api_calls: list,
+             transaction_ids: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "attack": attack,
         "title": title,
@@ -32,10 +33,12 @@ def _finding(attack: str, title: str, v: judge.Verdict, transcript: list, api_ca
         "severity": v.severity,
         "amount_at_risk": v.amount_at_risk,
         "loss_kind": v.loss_kind,
+        "amount_basis": v.amount_basis,
         "currency": "USD",
         "summary": v.summary,
         "fix": v.fix,
         "invariant": v.invariant,
+        "transaction_ids": transaction_ids or {},
         "transcript": transcript,
         "api_calls": api_calls,
         "evidence": v.evidence,
@@ -49,11 +52,12 @@ async def amount_tampering(dusk: DuskCoffee, settings: Settings, **_: Any) -> di
     transcript = [
         {"step": "cart", "detail": "1× Hand Grinder (list $400.00)"},
         {"step": "tamper", "detail": "submit client_total=$4.00 at create-order"},
-        {"step": "capture", "detail": f"PayPal captured ${rec.captured_value:.2f}"},
+        {"step": "capture", "detail": f"PayPal sandbox captured ${rec.captured_value:.2f}"},
     ]
     api_calls = [{"call": "POST /v2/checkout/orders (+capture)", "order_id": rec.order_id,
                   "captured": rec.captured_value, "list_total": rec.list_total}]
-    return _finding("amount_tampering", "Buy a $400 grinder for $4", v, transcript, api_calls)
+    return _finding("amount_tampering", "Buy a $400 grinder for $4", v, transcript, api_calls,
+                    {"order_id": rec.order_id, "capture_id": rec.capture_id})
 
 
 # ── 2. Coupon stacking ────────────────────────────────────────────────────────
@@ -70,31 +74,35 @@ async def coupon_stacking(dusk: DuskCoffee, settings: Settings, **_: Any) -> dic
     ]
     api_calls = [{"call": "POST /v2/checkout/orders (+capture)", "order_id": rec.order_id,
                   "charged": rec.charged_total, "discount_pct": q.discount_pct}]
-    return _finding("coupon_stacking", "Stack coupons past the discount cap", v, transcript, api_calls)
+    return _finding("coupon_stacking", "Stack coupons past the discount cap", v, transcript, api_calls,
+                    {"order_id": rec.order_id, "capture_id": rec.capture_id})
 
 
 # ── 3. Refund double-dip ──────────────────────────────────────────────────────
-async def refund_double_dip(dusk: DuskCoffee, settings: Settings, **_: Any) -> dict[str, Any]:
+async def refund_double_dip(dusk: DuskCoffee, settings: Settings, *, live: bool = False, **_: Any) -> dict[str, Any]:
     rec = await dusk.buy(ESPRESSO, description="refund-abuse")          # honest purchase
     captured = rec.captured_value or 0.0
     over_request = round(captured + 50.0, 2)
-    ok, reason, _ = await dusk.refund(rec.order_id, over_request)       # try to over-refund
+    ok, reason, refund_resp = await dusk.refund(rec.order_id, over_request)   # try to over-refund
+    refund_id = refund_resp.get("id") if isinstance(refund_resp, dict) else None
     api_calls = [{"call": "POST /v2/payments/captures/{id}/refund", "requested": over_request, "allowed": ok,
-                  "reason": reason}]
+                  "refund_id": refund_id, "reason": reason}]
     transcript = [
-        {"step": "buy", "detail": f"1× Espresso, captured ${captured:.2f}"},
+        {"step": "buy", "detail": f"1× Espresso, sandbox-captured ${captured:.2f}"},
         {"step": "over-refund", "detail": f"request refund ${over_request:.2f} — {reason}"},
     ]
     # second leg: open a dispute for the same charge (sandbox / mock)
     try:
-        disp = await dusk.open_dispute_as_buyer(rec.order_id)
+        await dusk.open_dispute_as_buyer(rec.order_id)
         transcript.append({"step": "dispute", "detail": f"opened dispute {rec.dispute_id} for the same charge"})
         api_calls.append({"call": "POST /v1/customer/disputes (sandbox)", "dispute_id": rec.dispute_id})
     except Exception as exc:  # buyer creds may be absent on live; refund leg still stands
         transcript.append({"step": "dispute", "detail": f"dispute leg skipped: {exc}"})
     v = judge.refund_abuse(captured=captured, refunded=rec.refunded_total,
-                           dispute_id=rec.dispute_id, settings=settings)
-    return _finding("refund_double_dip", "Refund more than paid, then dispute it too", v, transcript, api_calls)
+                           dispute_id=rec.dispute_id, settings=settings, live=live)
+    return _finding("refund_double_dip", "Over-refund, then dispute the same charge", v, transcript, api_calls,
+                    {"order_id": rec.order_id, "capture_id": rec.capture_id,
+                     "refund_id": refund_id, "dispute_id": rec.dispute_id})
 
 
 # ── 4. Forged webhook ─────────────────────────────────────────────────────────
@@ -112,7 +120,8 @@ async def forged_webhook(dusk: DuskCoffee, settings: Settings, **_: Any) -> dict
     ]
     api_calls = [{"call": "POST <merchant webhook>", "event": "PAYMENT.CAPTURE.COMPLETED (forged)",
                   "fulfilled": fulfilled}]
-    return _finding("forged_webhook", "Forge a 'paid' webhook, get goods free", v, transcript, api_calls)
+    return _finding("forged_webhook", "Forge a 'paid' webhook, get goods free", v, transcript, api_calls,
+                    {"order_id": order_id, "capture_id": None})
 
 
 # ── 5 & 6: LLM attacker vs Barista ────────────────────────────────────────────
@@ -151,7 +160,8 @@ async def haggle(dusk: DuskCoffee, settings: Settings, *, api_key: str, model: s
     v = judge.shop_ai_discount(list_total=list_total, captured=captured,
                                granted_pct=barista.granted_discount_pct, settings=settings)
     api_calls = [t for t in barista.transcript if t.get("role") == "barista_tool"]
-    return _finding("haggle", "Talk the shop AI into selling below cost", v, barista.transcript, api_calls)
+    tx = {"order_id": barista.last_order.order_id, "capture_id": barista.last_order.capture_id} if barista.last_order else {}
+    return _finding("haggle", "Talk the shop AI into selling below cost", v, barista.transcript, api_calls, tx)
 
 
 async def prompt_injection(dusk: DuskCoffee, settings: Settings, *, api_key: str, model: str, **_: Any) -> dict[str, Any]:
@@ -171,8 +181,9 @@ async def prompt_injection(dusk: DuskCoffee, settings: Settings, *, api_key: str
     v = judge.injection(granted_pct=barista.granted_discount_pct, refunds=barista.refunds,
                         list_total=list_total, captured=captured, settings=settings)
     api_calls = [t for t in barista.transcript if t.get("role") == "barista_tool"]
+    tx = {"order_id": barista.last_order.order_id, "capture_id": barista.last_order.capture_id} if barista.last_order else {}
     return _finding("prompt_injection", "Hide an instruction in a review to hijack the shop AI",
-                    v, barista.transcript, api_calls)
+                    v, barista.transcript, api_calls, tx)
 
 
 # attack name -> (coroutine, needs_llm)

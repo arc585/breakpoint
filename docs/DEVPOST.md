@@ -39,8 +39,14 @@ the client's $4 into a $400 order and PayPal captures $4 as asked; the bug is
 trusting the client's number. (2) *Haggle* — the LLM assistant grants a big
 discount, the shop creates a low-price order, and PayPal charges it **correctly**;
 the bug is the assistant's discount authority, **not PayPal**. Both are blocked on
-the hardened store. Exposure is reported by category (underpaid orders, excess
-discount, goods shipped unpaid, duplicate refunds), never one blended total.
+the hardened store. Every "capture" here is a **sandbox** capture.
+
+Exposure is reported by category and by **basis**, never blended: *uncollected
+order value* (goods worth more than was collected), *captured loss* (cash moved
+out, confirmed), and *estimated exposure* (what the shop's code would allow but
+the rail doesn't execute). The refund over-charge is estimated exposure — PayPal's
+live sandbox rail rejects it (`REFUND_AMOUNT_EXCEEDED`), so we don't call it a
+real loss. Each finding carries its transaction ids for ledger verification.
 
 ## How we built it
 
@@ -48,10 +54,12 @@ discount, goods shipped unpaid, duplicate refunds), never one blended total.
   capture), an order ledger, a webhook handler (`verify-webhook-signature`), and
   **Barista**, an LLM shop assistant in unsafe and hardened forms. Vulnerability
   toggles flip the whole store between exploitable and hardened.
-- **Red team** — attacker agents (OpenAI tool-calling loop). Two converse with
-  Barista through a `talk_to_barista` tool; four drive the checkout directly.
-- **Judge** — decides success from real PayPal/ledger state, never the model's
-  claim. Pure functions, unit-tested.
+- **Red team** — four scripted scenarios drive the checkout directly; two are
+  LLM agents that adapt across turns to Barista's replies (OpenAI tool-calling
+  loop, a `talk_to_barista` tool) and choose their own tactics.
+- **Judge** — decides success independently from real PayPal/ledger state, never
+  the model's claim. Pure functions, unit-tested; a generality suite proves each
+  hardening rule holds across many inputs, not just the demo payload.
 - **Dashboard** — React + **AG Grid**: before/after tiles, findings grid, and a
   detail panel with transcript, API calls and the fix.
 - Python/FastAPI · OpenAI · SQLite · React 19/Vite · deployable on **Render**.

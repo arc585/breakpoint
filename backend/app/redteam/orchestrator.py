@@ -41,7 +41,8 @@ async def run_suite(
                 store.add_finding(run_id, _error_finding(name, "no OPENAI_API_KEY set — LLM attack skipped"))
                 continue
             try:
-                finding = await fn(dusk, settings, api_key=settings.openai_api_key, model=settings.breakpoint_model)
+                finding = await fn(dusk, settings, api_key=settings.openai_api_key,
+                                   model=settings.breakpoint_model, live=use_live)
             except Exception as exc:  # one broken attack must not sink the run
                 logger.exception("[orchestrator] attack %s failed", name)
                 finding = _error_finding(name, f"{type(exc).__name__}: {exc}")

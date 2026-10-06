@@ -17,12 +17,22 @@ Built for the **PayPal AI Hackathon** (2026).
   It is **not** a tool for testing arbitrary live stores.
 - Four scenarios (amount tampering, coupon stacking, refund double-dip, forged
   webhook) are **scripted** checks. Two (**haggle**, **prompt injection**) are
-  genuinely **AI-driven** — an LLM attacker converses with the shop assistant.
-- In the AI cases **PayPal charges exactly what the order says**; the flaw is the
-  shop's pricing/discount policy, not PayPal. The report states this.
-- "Exposure" is reported **by category** (underpaid orders, excess discount
-  beyond the cap, goods shipped unpaid, duplicate refunds) — never a single
-  blended number that sums unlike quantities.
+  **AI-driven**: an LLM attacker adapts across turns to the assistant's replies
+  and chooses its own tactics; the harness then verifies the result independently
+  from sandbox state (never the model's claim).
+- In the AI cases **PayPal (sandbox) captures exactly what the order says**; the
+  flaw is the shop's pricing/discount policy, not PayPal. Every "capture" in this
+  project is a **sandbox** capture.
+- Each finding has **transaction ids** (order/capture/refund/dispute) so you can
+  check it against the PayPal sandbox ledger.
+- Exposure is reported **by category and by basis**, never blended:
+  - *uncollected order value* — goods/commitment worth more than was collected
+    (amount tampering, coupon excess, goods shipped unpaid);
+  - *captured loss* — cash actually moved out, confirmed in the ledger;
+  - *estimated exposure* — what the merchant's code would allow but the rail does
+    not execute. The refund over-charge is **estimated exposure**: PayPal's live
+    sandbox rail rejects it (`REFUND_AMOUNT_EXCEEDED`), so it is not a real loss —
+    it's a merchant-logic flaw the mock surfaces.
 
 ---
 

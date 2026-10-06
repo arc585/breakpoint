@@ -12,6 +12,12 @@ const LOSS_LABELS: Record<string, string> = {
   duplicate_refund: "Duplicate refunds",
 };
 
+const BASIS_LABELS: Record<string, string> = {
+  uncollected_order_value: "uncollected order value",
+  captured_loss: "captured loss (cash out)",
+  estimated_exposure: "estimated exposure (merchant logic; PayPal rail may block)",
+};
+
 function ExposureBreakdown({ by }: { by: Record<string, number> }) {
   const kinds = Object.entries(by).filter(([k]) => k !== "none");
   if (!kinds.length) return null;
@@ -78,7 +84,17 @@ function Detail({ f }: { f: Finding | null }) {
       </div>
       {f.loss_kind && f.loss_kind !== "none" && (
         <div className="text-xs opacity-70">
-          Loss type: <b>{LOSS_LABELS[f.loss_kind] ?? f.loss_kind}</b> · {money(f.amount_at_risk)}
+          Loss type: <b>{LOSS_LABELS[f.loss_kind] ?? f.loss_kind}</b> · {money(f.amount_at_risk)}{" "}
+          <span className="opacity-60">({BASIS_LABELS[f.amount_basis] ?? f.amount_basis})</span>
+        </div>
+      )}
+      {f.transaction_ids && Object.values(f.transaction_ids).some(Boolean) && (
+        <div className="text-xs opacity-60">
+          <span className="opacity-70">Transaction ids (check against the sandbox ledger): </span>
+          {Object.entries(f.transaction_ids)
+            .filter(([, v]) => v)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(" · ")}
         </div>
       )}
       <div>
