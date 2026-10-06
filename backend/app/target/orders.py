@@ -19,8 +19,9 @@ from typing import Any
 from ..paypal.client import PayPalClient, PayPalError
 
 # PayPal's documented sandbox test card (Visa). No 3DS → captures server-side.
+# From developer.paypal.com card-testing; any future expiry + 3-digit CVV.
 SANDBOX_TEST_CARD = {
-    "number": "4032030000000000",
+    "number": "4005519200000004",
     "expiry": "2030-01",
     "security_code": "123",
     "name": "Dusk Coffee Buyer",

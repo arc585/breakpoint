@@ -12,7 +12,7 @@ import uuid
 from typing import Any
 
 from ..config import Settings
-from ..paypal.client import PayPalClient
+from ..paypal.client import PayPalClient, PayPalError
 from . import catalog, checkout, orders, webhook
 from .ledger import Ledger, OrderRecord
 
@@ -69,9 +69,17 @@ class DuskCoffee:
         )
         if not ok:
             return False, reason, None
-        resp = await self.client.refund_capture(
-            rec.capture_id, {"currency_code": rec.currency, "value": f"{amount:.2f}"}
-        )
+        try:
+            resp = await self.client.refund_capture(
+                rec.capture_id, {"currency_code": rec.currency, "value": f"{amount:.2f}"}
+            )
+        except PayPalError as exc:
+            # PayPal's own rail bounds refunds to the captured amount. A merchant
+            # whose code would allow the over-refund is still stopped here — record
+            # that rather than crashing, so the attack degrades to BLOCKED on live.
+            issue = (exc.body.get("details", [{}])[0].get("issue")
+                     if isinstance(exc.body, dict) else None) or f"HTTP {exc.status}"
+            return False, f"PayPal rejected the refund ({issue})", None
         rec.refunded_total = round(rec.refunded_total + amount, 2)
         rec.notes.append(reason)
         self.ledger.put(rec)
