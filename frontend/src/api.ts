@@ -25,17 +25,21 @@ export type Run = {
 };
 export type Summary = { vulnerable: Run | null; hardened: Run | null };
 
+// Dev: "" → relative /api via the Vite proxy. Prod: set VITE_API_BASE to the
+// deployed API origin at build time.
+const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
+
 const j = async (r: Response) => {
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 };
 
 export const api = {
-  runs: (): Promise<Run[]> => fetch("/api/runs").then(j),
-  run: (id: string): Promise<Run> => fetch(`/api/runs/${id}`).then(j),
-  summary: (): Promise<Summary> => fetch("/api/summary").then(j),
+  runs: (): Promise<Run[]> => fetch(`${BASE}/api/runs`).then(j),
+  run: (id: string): Promise<Run> => fetch(`${BASE}/api/runs/${id}`).then(j),
+  summary: (): Promise<Summary> => fetch(`${BASE}/api/summary`).then(j),
   createRun: (target: "vulnerable" | "hardened", only?: string[]): Promise<Run> =>
-    fetch("/api/runs", {
+    fetch(`${BASE}/api/runs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ target, live: false, only }),

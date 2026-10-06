@@ -1,0 +1,44 @@
+# Render blueprint for Breakpoint. Deploy: push to GitHub, then on Render
+# "New +" → "Blueprint" → pick this repo. Set the secret env vars when prompted
+# (they are sync:false, so Render asks for them and never stores them in git).
+#
+# After first deploy: set the API's BREAKPOINT_CORS to the dashboard URL, and set
+# the dashboard's VITE_API_BASE to the API URL, then redeploy.
+services:
+  - type: web
+    name: breakpoint-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: BREAKPOINT_MODEL
+        value: gpt-4.1
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_SECRET
+        sync: false
+      - key: PAYPAL_MERCHANT_EMAIL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: BREAKPOINT_CORS
+        sync: false    # set to the dashboard's https URL after it deploys
+
+  - type: web
+    name: breakpoint-dashboard
+    runtime: static
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE
+        sync: false    # set to the breakpoint-api https URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
