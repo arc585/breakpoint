@@ -60,3 +60,7 @@ class MockPayPalClient:
 
     async def provide_evidence(self, dispute_id: str, *, notes: str, document=None) -> dict[str, Any]:
         return {"status": "OK", "dispute_id": dispute_id}
+
+    async def create_payout(self, *, email, amount, currency="USD", note="payout") -> dict[str, Any]:
+        return {"batch_header": {"payout_batch_id": "MOCK-PO-" + uuid.uuid4().hex[:10],
+                                 "batch_status": "PENDING"}}

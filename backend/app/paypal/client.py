@@ -170,6 +170,21 @@ class PayPalClient:
             "POST", f"/v1/customer/disputes/{dispute_id}/provide-evidence", files=files
         )
 
+    # ── Payouts (money out) ──
+    async def create_payout(self, *, email: str, amount: float, currency: str = "USD",
+                            note: str = "Dusk Coffee payout") -> Any:
+        """Send money to an arbitrary recipient email via the Payouts API."""
+        body = {
+            "sender_batch_header": {"email_subject": note},
+            "items": [{
+                "recipient_type": "EMAIL",
+                "amount": {"value": f"{amount:.2f}", "currency": currency},
+                "receiver": email,
+                "note": note,
+            }],
+        }
+        return await self._request("POST", "/v1/payments/payouts", json_body=body)
+
     # ── Webhooks ──
     async def verify_webhook_signature(
         self, *, headers: dict[str, str], webhook_id: str, event_body: dict[str, Any]

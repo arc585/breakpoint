@@ -10,6 +10,8 @@ const LOSS_LABELS: Record<string, string> = {
   excess_discount: "Excess discount (beyond cap)",
   goods_unpaid: "Goods shipped unpaid",
   duplicate_refund: "Duplicate refunds",
+  misdirected_funds: "Misdirected payouts",
+  data_leak: "Data disclosed (no $ loss)",
 };
 
 const BASIS_LABELS: Record<string, string> = {
@@ -181,7 +183,7 @@ export default function App() {
         </p>
         <p className="opacity-40 text-xs mt-1">
           Scope: tests the bundled Dusk Coffee app only, never arbitrary stores. 4 scenarios are
-          scripted checks; 2 (haggle, prompt-injection) drive a live LLM against the shop assistant.
+          scripted checks; 4 (haggle, prompt-injection, data-exfiltration, rogue-payout) drive a live LLM against the shop assistant.
         </p>
       </header>
 

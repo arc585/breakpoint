@@ -18,23 +18,25 @@ that world: something that attacks a checkout the way a real adversary would,
 
 Breakpoint runs six attack scenarios against a demo store's PayPal checkout
 **and** its AI shop assistant — all in the PayPal sandbox, no real money. Four
-scenarios are scripted business-logic checks; two are AI-driven (an LLM attacker
+scenarios are scripted business-logic checks; four are AI-driven (an LLM attacker
 that adapts across turns to the assistant's replies). It confirms each one
 from real PayPal state (never the model's claim) and reports the **invariant**
 that fixes it. Then it re-runs every scenario against a hardened build and shows
-them blocked — and a generality suite proves the **scripted** rules (pricing,
-coupon, refund incl. prior partial refunds, and webhook signature) hold across
-varied products, values and combinations, not just the demo payload. (The two AI
+them blocked — and a generality suite proves the deterministic rules (server-side
+pricing, discount/refund bounds, and webhook-signature checks) hold across varied
+products, values and combinations, not just the demo payload. (The four AI
 scenarios are non-deterministic, so they're evaluated per run, not in that matrix.)
 
-| Scenario | Kind | What it abuses |
-|---|---|---|
-| Amount tampering | scripted | client-supplied cart total trusted at create-order |
-| Coupon stacking | scripted | coupons stacked past the policy cap |
-| Refund double-dip | scripted | over-refund, or refund + a dispute on the same charge |
-| Forged webhook | scripted | a fake `PAYMENT.CAPTURE.COMPLETED` with no signature check |
-| Haggle | **AI** | an LLM talks the shop assistant into selling below cost |
-| Prompt injection | **AI** | a hidden instruction in a review hijacks the assistant |
+The six span the trust-boundary map of an AI + payments system and the OWASP LLM Top 10:
+
+| Scenario | Kind | Trust boundary | Category |
+|---|---|---|---|
+| Amount tampering | scripted | client → server | business-logic integrity |
+| Haggle | **AI** | human → agent authority | OWASP LLM08 Excessive Agency |
+| Prompt injection | **AI** | untrusted content → model | OWASP LLM01 Prompt Injection |
+| Data exfiltration | **AI** | model → confidential data | OWASP LLM06 Sensitive-Info Disclosure |
+| Rogue payout | **AI** | agent → money movement | least-privilege on funds |
+| Forged webhook | scripted | service → service | service authentication |
 
 **The money shot — two distinct flaws:** (1) *Amount tampering* — the shop puts
 the client's $4 into a $400 order and PayPal captures $4 as asked; the bug is
@@ -56,7 +58,7 @@ real loss. Each finding carries its transaction ids for ledger verification.
   capture), an order ledger, a webhook handler (`verify-webhook-signature`), and
   **Barista**, an LLM shop assistant in unsafe and hardened forms. Vulnerability
   toggles flip the whole store between exploitable and hardened.
-- **Red team** — four scripted scenarios drive the checkout directly; two are
+- **Red team** — two scripted scenarios drive the checkout directly; four are
   LLM agents that adapt across turns to Barista's replies (Anthropic Claude tool-calling
   loop, a `talk_to_barista` tool) and choose their own tactics.
 - **Judge** — decides success independently from real PayPal/ledger state, never

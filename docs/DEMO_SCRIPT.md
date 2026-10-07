@@ -41,9 +41,10 @@ Show the Barista transcript lines.
 
 **2:10–2:45 — The fix (before/after)**
 Switch the run selector to the **hardened** run (or click "Run hardened").
-> "Now the same six attacks against the hardened store — server recomputes the
-> price, caps discounts, verifies webhook signatures, and treats review text as
-> data, not instructions. Six for six: blocked."
+> "Now the same six against the hardened store — the server recomputes the price,
+> caps the assistant's discount, treats review text as data, scopes customer data
+> to the current session, strips the assistant's arbitrary-payout tool, and
+> verifies webhook signatures. Six for six: blocked."
 
 Show the green tile / all BLOCKED rows. Click one → read the fix and the invariant it enforces.
 

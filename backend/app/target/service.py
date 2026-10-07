@@ -134,5 +134,13 @@ class DuskCoffee:
             "dusk_order_id": order_id,
         }
 
+    async def payout(self, destination: str, amount: float) -> tuple[str | None, dict]:
+        """Send a payout to an arbitrary destination (the rogue-payout surface)."""
+        resp = await self.client.create_payout(email=destination, amount=amount)
+        payout_id = None
+        if isinstance(resp, dict):
+            payout_id = resp.get("batch_header", {}).get("payout_batch_id") or resp.get("id")
+        return payout_id, resp
+
     def products(self) -> list[dict[str, Any]]:
         return catalog.list_products()

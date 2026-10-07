@@ -7,7 +7,7 @@
 > order that violates the merchant's own pricing or fulfilment rules — and
 > verifies the result against PayPal sandbox state.
 
-It runs six **attack scenarios** — four scripted business-logic checks and two
+It runs six **attack scenarios** — two scripted business-logic checks and four
 that drive a live LLM against the shop's AI assistant — against **Dusk Coffee**, a
 purpose-built, intentionally-vulnerable demo app, entirely in the **PayPal
 sandbox**. For each it shows the order/payment state it caused, whether it
@@ -75,27 +75,31 @@ system you do not own and have explicit permission to test.
 - **Target — Dusk Coffee:** a small coffee roaster with a PayPal Orders v2
   checkout and an AI assistant ("Barista"). Vulnerability toggles (see
   `.env.example`) flip it between **exploitable** and **hardened**.
-- **Red team:** six scenarios — four scripted checks, and two **LLM attackers**
+- **Red team:** six scenarios — two scripted checks, and four **LLM attackers**
   (Anthropic Claude SDK) that converse with Barista. A judge confirms each outcome from
   real PayPal sandbox state.
 - **Report:** a React + AG Grid dashboard of runs and findings.
 
 ## Attack scenarios (v1)
 
-| Scenario | Kind | What it abuses | Invariant the fix enforces |
-|----------|------|----------------|----------------------------|
-| Amount tampering | scripted | client-supplied cart total trusted | `order.amount == server_price(cart)` |
-| Coupon stacking | scripted | coupons stack past the policy cap | `discount ≤ cap AND ≤ 1 coupon` |
-| Refund double-dip | scripted | over-refund / refund + dispute same charge | `Σ refunds ≤ captured; one payout per charge` |
-| Forged webhook | scripted | fake `PAYMENT.CAPTURE.COMPLETED`, no sig check | `fulfil ⟹ verify_webhook_signature == SUCCESS` |
-| Haggle | **AI** | LLM talks the shop assistant below cost | `assistant_discount ≤ cap; server sets final price` |
-| Prompt injection | **AI** | hidden instruction in a review hijacks the assistant | `tool-returned text is data, never instructions` |
+Six scenarios chosen to span the whole trust-boundary map of an AI + payments
+system — integrity, confidentiality, and control of funds — and to line up with
+the OWASP LLM Top 10. No two share a fix.
+
+| Scenario | Kind | Trust boundary it tests | Invariant the fix enforces | Category |
+|----------|------|-------------------------|----------------------------|----------|
+| Amount tampering | scripted | client → server | `order.amount == server_price(cart)` | Business-logic integrity |
+| Haggle | **AI** | human → agent authority | `assistant_discount ≤ cap; server sets final price` | OWASP LLM08 Excessive Agency |
+| Prompt injection | **AI** | untrusted content → model | instructions come only from system policy | OWASP LLM01 Prompt Injection |
+| Data exfiltration | **AI** | model → confidential data | only current-session data; no cross-customer PII / secrets | OWASP LLM06 Sensitive-Info Disclosure |
+| Rogue payout | **AI** | agent → money movement | `payout.destination == original_payer`; no free-form payout tool | OWASP LLM08 / least-privilege on funds |
+| Forged webhook | scripted | service → service | `fulfil ⟹ verify_webhook_signature == SUCCESS` | Service authentication |
 
 ## Run it (local)
 
 Keys needed depend on how much you want to exercise:
-- **Four scripted scenarios on the mock PayPal** — no keys at all (self-contained).
-- **The two AI scenarios** (haggle, prompt injection) — need an `ANTHROPIC_API_KEY`.
+- **The two scripted scenarios** (amount tampering, forged webhook) — no keys at all (self-contained).
+- **The four AI scenarios** (haggle, prompt injection, data exfiltration, rogue payout) — need an `ANTHROPIC_API_KEY`.
 - **`--live`** against the real PayPal sandbox — needs a **US** sandbox business
   account + app (India accounts can't do Advanced card processing).
 
