@@ -182,7 +182,7 @@ export default function App() {
           rule that fixes it.
         </p>
         <p className="opacity-40 text-xs mt-1">
-          Scope: tests the bundled Dusk Coffee app only, never arbitrary stores. 4 scenarios are
+          Scope: tests the bundled Dusk Coffee app only, never arbitrary stores. 2 scenarios are
           scripted checks; 4 (haggle, prompt-injection, data-exfiltration, rogue-payout) drive a live LLM against the shop assistant.
         </p>
       </header>
