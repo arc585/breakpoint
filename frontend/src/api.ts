@@ -7,6 +7,7 @@ export type Finding = {
   amount_at_risk: number;
   loss_kind: string;
   amount_basis: string;
+  tier: string;
   currency: string;
   summary: string;
   fix: string;

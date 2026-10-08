@@ -20,6 +20,12 @@ const BASIS_LABELS: Record<string, string> = {
   estimated_exposure: "estimated exposure (merchant logic; PayPal rail may block)",
 };
 
+const TIER_LABELS: Record<string, string> = {
+  architectural: "architectural",
+  ai_judgment: "AI-judgment",
+};
+const tierColor = (t: string) => (t === "architectural" ? "#d4537e" : "#378add");
+
 function ExposureBreakdown({ by }: { by: Record<string, number> }) {
   const kinds = Object.entries(by).filter(([k]) => k !== "none");
   if (!kinds.length) return null;
@@ -70,7 +76,9 @@ function Detail({ f }: { f: Finding | null }) {
   return (
     <div className="p-5 space-y-4 overflow-auto" style={{ maxHeight: "70vh" }}>
       <div>
-        <div className="text-xs uppercase opacity-60">{f.attack} · {f.severity}</div>
+        <div className="text-xs uppercase opacity-60">
+          {f.attack} · {f.severity} · <span style={{ color: tierColor(f.tier) }}>{TIER_LABELS[f.tier] ?? f.tier}</span>
+        </div>
         <h2 className="text-xl font-semibold">{f.title}</h2>
         <p className="opacity-80 mt-1">{f.summary}</p>
       </div>
@@ -162,9 +170,14 @@ export default function App() {
         fontWeight: 600,
       }),
     },
-    { field: "severity", headerName: "Severity", width: 110 },
     {
-      field: "amount_at_risk", headerName: "$ at risk", width: 120,
+      field: "tier", headerName: "Tier", width: 130,
+      valueFormatter: (p) => TIER_LABELS[p.value] ?? p.value,
+      cellStyle: (p) => ({ color: tierColor(p.value), fontWeight: 600 }),
+    },
+    { field: "severity", headerName: "Severity", width: 100 },
+    {
+      field: "amount_at_risk", headerName: "$ at risk", width: 110,
       valueFormatter: (p) => money(p.value || 0),
       cellStyle: { textAlign: "right" },
     },
@@ -184,6 +197,11 @@ export default function App() {
         <p className="opacity-40 text-xs mt-1">
           Scope: tests the bundled Dusk Coffee app only, never arbitrary stores. 2 scenarios are
           scripted checks; 4 (haggle, prompt-injection, data-exfiltration, rogue-payout) drive a live LLM against the shop assistant.
+        </p>
+        <p className="opacity-50 text-xs mt-1">
+          Tier: <span style={{ color: tierColor("architectural") }}>architectural</span> = exploited
+          regardless of the model (a system flaw); <span style={{ color: tierColor("ai_judgment") }}>AI-judgment</span>{" "}
+          = depends on the model declining — fragile, which the hardened build removes.
         </p>
       </header>
 

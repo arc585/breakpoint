@@ -11,9 +11,10 @@ Record the dashboard (http://localhost:5173) with the backend running.
 > pricing and fulfilment rules? Breakpoint tests exactly that, in the PayPal
 > sandbox."
 
-Show the dashboard landing: the two tiles — **Vulnerable 6/6 exploited** vs
-**Hardened 6/6 blocked**, with exposure labelled by basis (uncollected order
-value vs estimated exposure).
+Show the dashboard landing: the two tiles — **vulnerable store exploited** vs
+**hardened store blocked** — with exposure by basis and the **tier** column:
+architectural flaws (the AI can't save you) vs AI-judgment risks (you're relying
+on the model). The hardened build blocks every tier by design.
 
 **0:20–0:50 — What it is**
 > "It attacks a demo store's PayPal checkout *and* its AI shop assistant, in the
@@ -57,6 +58,6 @@ Show the GitHub URL: github.com/arc585/breakpoint
 
 ---
 
-Tips: keep the mock run as the on-screen demo (instant, clean 6/6). Pre-run both
+Tips: keep the mock run as the on-screen demo (instant). Pre-run both
 `python scripts/run_suite.py --target vulnerable` and `--target hardened` before
 recording so the grid is populated. Mention "PayPal sandbox — no real money" once.

@@ -81,12 +81,20 @@ real loss. Each finding carries its transaction ids for ledger verification.
 
 ## Accomplishments
 
-- A working before/after: **vulnerable 6/6 exploited vs hardened 0/6**, with live
-  PayPal sandbox captures (including an LLM agent haggled to 95% off → a real $20
-  capture on a $400 item).
+- A working before/after against a **realistic, generic** shop assistant (not a
+  strawman): on the vulnerable store the **architectural** flaws (amount
+  tampering, data exfiltration, forged webhook) break on every run, **prompt
+  injection** fools even a careful model, and **haggle / rogue-payout** are
+  model-dependent — sometimes exploited, sometimes held only by the model's own
+  judgment. The hardened build blocks **all six by design**, not by luck.
+- That split is the point: it separates flaws the AI can't save you from from
+  risks where you're merely relying on the model declining (fragile — one
+  jailbreak or model swap away). Each finding is tagged architectural or
+  AI-judgment.
+- Live PayPal **sandbox** capture confirmed (real $4 capture on a $400 order).
 - The hardened fixes are real code (server-side price recompute, discount caps,
-  signature verification, quarantining untrusted text) — the report's "fix" is
-  something you can actually ship.
+  scoped data access, no free-form payout tool, signature verification,
+  quarantined untrusted text) — the report's fix is something you can ship.
 
 ## What we learned
 

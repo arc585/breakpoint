@@ -18,8 +18,18 @@ blocked.
 Built for the **PayPal AI Hackathon** (2026).
 
 ### Scope & honesty
-- It tests **only the bundled Dusk Coffee app**, which is built to be vulnerable.
-  It is **not** a tool for testing arbitrary live stores.
+- It tests **only the bundled Dusk Coffee app**. It is **not** a tool for testing
+  arbitrary live stores.
+- The shop assistant is a **single generic, realistic persona** — we don't make it
+  gullible to force a result. The only thing that differs between vulnerable and
+  hardened is the **system architecture** (tool access-control, server-side
+  checks, webhook verification). If the model itself declines an attack, that's a
+  real finding, not something we engineer around.
+- Each finding is tagged by **tier**: *architectural* (exploited regardless of the
+  model — a system flaw) or *AI-judgment* (the outcome depends on the model
+  declining — fragile). Architectural flaws break on every run; the AI-judgment
+  ones vary. The hardened build blocks **all** of them by design, so you never
+  depend on the model's judgment.
 - Four scenarios (amount tampering, coupon stacking, refund double-dip, forged
   webhook) are **scripted** checks. Two (**haggle**, **prompt injection**) are
   **AI-driven**: an LLM attacker adapts across turns to the assistant's replies
